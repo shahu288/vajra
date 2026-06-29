@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vajra - Monolith Interface Spec</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Space Grotesk & Syne -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@700;800&family=Space+Mono&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Space Grotesk', 'sans-serif'],
+            display: ['Syne', 'sans-serif'],
+            mono: ['Space Mono', 'monospace'],
+          },
+          colors: {
+            obsidian: '#08080C',
+            charcoal: '#0D0D14',
+            gold: '#D4AF37',
+            amberFlame: '#FF5A00',
+            cyanThunder: '#00E5FF',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Smooth transitions */
+    .checkbox-fill {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    /* Oscillating flame keyframes */
+    @keyframes flame-glow {
+      0% { transform: scale(1) rotate(0deg); opacity: 0.8; filter: blur(4px); }
+      50% { transform: scale(1.06) rotate(3deg); opacity: 0.95; filter: blur(6px); }
+      100% { transform: scale(1) rotate(0deg); opacity: 0.8; filter: blur(4px); }
+    }
+    @keyframes flame-inner {
+      0% { transform: scale(1) rotate(0deg); }
+      50% { transform: scale(0.95) rotate(-4deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    .animate-flame {
+      animation: flame-glow 3.5s ease-in-out infinite;
+    }
+    .animate-flame-inner {
+      animation: flame-inner 2.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-[#030305] min-h-screen flex items-center justify-center font-sans text-white">
+
+  <!-- React Mount Root -->
+  <div id="root" class="w-full"></div>
+
+  <!-- Load Core Script Packages -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- React Application Compiler Script -->
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Geometric Vajra Logo: Silver Diamond with Cyan Thunderbolt Split
+    function VajraLogo({ size = 26 }) {
+      return (
+        <svg 
+          width={size} 
+          height={size} 
+          viewBox="0 0 100 100" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* Left Segment: Metallic Silver Polygons */}
+          <polygon points="50,5 15,50 50,95" fill="#E2E8F0" />
+          <polygon points="50,5 32,50 50,95" fill="#CBD5E1" opacity="0.8" />
+          
+          {/* Right Segment: Metallic Silver Polygons */}
+          <polygon points="50,5 85,50 50,95" fill="#CCCCCC" />
+          <polygon points="50,5 68,50 50,95" fill="#94A3B8" opacity="0.9" />
+          
+          {/* Center split: Kinetic Thunderbolt Vector in Electric Cyan */}
+          <polygon 
+            points="50,5 45,46 54,46 41,60 52,60 50,95 55,95 59,52 48,52 61,38 50,38" 
+            fill="#00E5FF" 
+          />
+        </svg>
+      );
+    }
+
+    function App() {
+      const [score, setScore] = useState(76);
+      const [vows, setVows] = useState([
+        { id: 'v1', name: 'Wake before 6 AM', difficulty: 'medium', weight: 1.5, completed: true },
+        { id: 'v2', name: 'Workout 45 min', difficulty: 'medium', weight: 1.5, completed: false },
+        { id: 'v3', name: 'No social media', difficulty: 'hard', weight: 2.0, completed: true }
+      ]);
+      const [activeTab, setActiveTab] = useState('vows');
+
+      const handleToggle = (id) => {
+        const updated = vows.map(v => {
+          if (v.id === id) {
+            return { ...v, completed: !v.completed };
+          }
+          return v;
+        });
+        setVows(updated);
+
+        // Dynamically compute score
+        const total = updated.reduce((sum, v) => sum + v.weight, 0);
+        const completed = updated.reduce((sum, v) => sum + (v.completed ? v.weight : 0), 0);
+        const scorePercentage = total > 0 ? (completed / total) : 0;
+        
+        // Base score changes around 50 - 100 based on completion
+        const newScore = Math.round(50 + scorePercentage * 50);
+        setScore(newScore);
+      };
+
+      return (
+        /* ENFORCED CONTAINER FRAME: Strict Mobile-First Layout Viewport */
+        <div class="w-full max-w-[430px] min-h-screen mx-auto bg-[#08080C] text-white overflow-hidden relative border-x border-zinc-900 shadow-2xl flex flex-col justify-between pb-24">
+          
+          {/* Header Bar */}
+          <div class="flex justify-between items-center px-6 py-5 bg-[#08080C]/80 backdrop-blur-md sticky top-0 z-50 border-b border-zinc-950">
+            <div class="flex items-center gap-3">
+              <VajraLogo size={24} />
+              <div class="flex flex-col">
+                <span class="font-display font-bold tracking-[0.25em] text-sm text-white leading-none">VAJRA</span>
+                <span class="text-[8px] font-mono text-zinc-500 tracking-wider mt-1">WARRIOR • LV.3</span>
+              </div>
+            </div>
+            <div>
+              <span class="text-[9px] font-mono text-[#00E5FF] border border-[#00E5FF]/30 px-3 py-1 bg-[#00E5FF]/5 uppercase tracking-widest rounded-sm">
+                🛡️ 1 Shield
+              </span>
+            </div>
+          </div>
+
+          {/* Body Content */}
+          <div class="flex-1 flex flex-col gap-8 py-4">
+            
+            {/* MONOLITH HERO VISUALS: Centered Card */}
+            <div class="w-[85%] mx-auto bg-gradient-to-b from-zinc-900/40 to-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-6 shadow-[0_0_50px_rgba(212,175,55,0.08)]">
+              
+              {/* Multi-layered Orange/Amber Glowing Flame */}
+              <div class="w-24 h-24 flex items-center justify-center relative">
+                {/* Amber Outer Glow */}
+                <div class="w-20 h-20 rounded-full bg-amberFlame opacity-[0.06] filter blur-xl absolute animate-flame"></div>
+                {/* Flame Path */}
+                <svg width="80" height="80" viewBox="0 0 100 100" class="absolute animate-flame">
+                  {/* Outer tongue */}
+                  <path 
+                    d="M 50 95 C 22 72, 12 52, 50 8 C 88 52, 78 72, 50 95 Z" 
+                    fill="url(#amberGlow)" 
+                    opacity="0.18" 
+                    className="origin-[50px_90px]"
+                  />
+                  {/* Middle tongue */}
+                  <path 
+                    d="M 50 90 C 30 70, 20 54, 50 18 C 80 54, 70 70, 50 90 Z" 
+                    fill="url(#amberGlow)" 
+                    opacity="0.5" 
+                    className="origin-[50px_85px] animate-flame-inner"
+                  />
+                  {/* Inner tongue core */}
+                  <path 
+                    d="M 50 85 C 36 67, 26 57, 50 32 C 74 57, 64 67, 50 85 Z" 
+                    fill="#FF5A00" 
+                    className="origin-[50px_80px]"
+                  />
+                  <defs>
+                    <linearGradient id="amberGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#FF5A00" />
+                      <stop offset="100%" stop-color="#D4AF37" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              {/* Massive Score */}
+              <div class="flex flex-col items-center">
+                <span class="text-7xl font-display font-extrabold tracking-tight text-white leading-none">
+                  {score}
+                </span>
+                {/* Status Pill Badge */}
+                <div class="border border-[#D4AF37] text-[#D4AF37] px-3 py-0.5 rounded text-[9px] tracking-[0.25em] font-bold uppercase bg-[#D4AF37]/5 mt-4">
+                  FORGED
+                </div>
+              </div>
+            </div>
+
+            {/* DAILY VOWS LIST: Stacked commit rows directly below monolith */}
+            <div class="w-[85%] mx-auto flex flex-col gap-2 mt-2">
+              <span class="text-[9px] font-mono tracking-[0.2em] text-zinc-500 uppercase mb-1">Active Commitments</span>
+              
+              {vows.map((vow) => (
+                <div 
+                  key={vow.id} 
+                  onClick={() => handleToggle(vow.id)}
+                  class="flex justify-between items-center py-4 px-5 bg-zinc-950/40 hover:bg-zinc-950/60 transition-colors border-b border-zinc-900/30 cursor-pointer select-none"
+                >
+                  <div class="flex flex-col">
+                    <span class="text-sm font-medium text-white transition-colors duration-200">{vow.name}</span>
+                    <span class="text-[8px] font-mono text-zinc-500 tracking-wider uppercase mt-1">
+                      {vow.difficulty} • ×{vow.weight.toFixed(1)}
+                    </span>
+                  </div>
+                  
+                  {/* Custom Premium Circular Toggle Button */}
+                  <div 
+                    class={`w-5 h-5 rounded-full border checkbox-fill flex items-center justify-center ${
+                      vow.completed 
+                        ? 'border-gold bg-[#FF5A00] shadow-[0_0_10px_rgba(255,90,0,0.3)]' 
+                        : 'border-zinc-800 bg-transparent'
+                    }`}
+                  >
+                    {vow.completed && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 4L3.5 6.5L9 1" stroke="#08080C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* FLOATING BOTTOM NAVIGATION ISLAND */}
+          <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] bg-black/80 backdrop-blur-2xl rounded-3xl p-3 border border-white/10 flex items-center justify-between z-50 shadow-2xl">
+            <button 
+              onClick={() => setActiveTab('vows')} 
+              class={`flex flex-col items-center gap-0.5 flex-1 py-1 transition-colors ${activeTab === 'vows' ? 'text-gold' : 'text-zinc-500'}`}
+            >
+              <span class="text-lg">⚡</span>
+              <span class="text-[8px] font-mono tracking-widest uppercase">Vows</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('squad')} 
+              class={`flex flex-col items-center gap-0.5 flex-1 py-1 transition-colors ${activeTab === 'squad' ? 'text-gold' : 'text-zinc-500'}`}
+            >
+              <span class="text-lg">👥</span>
+              <span class="text-[8px] font-mono tracking-widest uppercase">Squad</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('feed')} 
+              class={`flex flex-col items-center gap-0.5 flex-1 py-1 transition-colors ${activeTab === 'feed' ? 'text-gold' : 'text-zinc-500'}`}
+            >
+              <span class="text-lg">📢</span>
+              <span class="text-[8px] font-mono tracking-widest uppercase">Feed</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('profile')} 
+              class={`flex flex-col items-center gap-0.5 flex-1 py-1 transition-colors ${activeTab === 'profile' ? 'text-gold' : 'text-zinc-500'}`}
+            >
+              <span class="text-lg">👤</span>
+              <span class="text-[8px] font-mono tracking-widest uppercase">Profile</span>
+            </button>
+          </div>
+
+        </div>
+      );
+    }
+
+    // Mount React Root
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
