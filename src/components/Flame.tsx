@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { theme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
@@ -12,15 +12,16 @@ import Animated, {
   withDelay, 
   Easing 
 } from 'react-native-reanimated';
+import { Text } from './Text';
 
 interface FlameProps {
   score: number;
+  displayName?: string;
 }
 
-// Spark component for transient vow-completion particles on mobile
 function Spark({ index }: { index: number }) {
-  const x = useSharedValue(80);
-  const y = useSharedValue(130);
+  const x = useSharedValue(82);
+  const y = useSharedValue(106);
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
 
@@ -38,8 +39,8 @@ function Spark({ index }: { index: number }) {
   const target = targets[index % targets.length];
 
   useEffect(() => {
-    x.value = withTiming(80 + target.dx, { duration: 1200, easing: Easing.out(Easing.quad) });
-    y.value = withTiming(130 + target.dy, { duration: 1200, easing: Easing.out(Easing.quad) });
+    x.value = withTiming(82 + target.dx, { duration: 1200, easing: Easing.out(Easing.quad) });
+    y.value = withTiming(106 + target.dy, { duration: 1200, easing: Easing.out(Easing.quad) });
     opacity.value = withTiming(0, { duration: 1200, easing: Easing.in(Easing.quad) });
     scale.value = withTiming(0, { duration: 1200 });
   }, [target.dx, target.dy, opacity, scale, x, y]);
@@ -52,7 +53,7 @@ function Spark({ index }: { index: number }) {
       width: 3.5,
       height: 3.5,
       borderRadius: 1.75,
-      backgroundColor: '#FFF59D',
+      backgroundColor: '#F2EFEA',
       opacity: opacity.value,
       transform: [{ scale: scale.value }],
     };
@@ -61,9 +62,8 @@ function Spark({ index }: { index: number }) {
   return <Animated.View style={animatedStyle} />;
 }
 
-// Ember component for ambient rising particles on mobile
 function Ember({ delay, startX, driftX }: { delay: number; startX: number; driftX: number }) {
-  const y = useSharedValue(145);
+  const y = useSharedValue(106);
   const x = useSharedValue(startX);
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0);
@@ -72,7 +72,7 @@ function Ember({ delay, startX, driftX }: { delay: number; startX: number; drift
     let active = true;
     const runEmber = () => {
       if (!active) return;
-      y.value = 145;
+      y.value = 106;
       x.value = startX;
       opacity.value = 0;
       scale.value = 0;
@@ -96,7 +96,7 @@ function Ember({ delay, startX, driftX }: { delay: number; startX: number; drift
 
       y.value = withDelay(
         delay,
-        withTiming(20, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+        withTiming(30, { duration: 3000, easing: Easing.inOut(Easing.ease) })
       );
 
       x.value = withDelay(
@@ -123,7 +123,7 @@ function Ember({ delay, startX, driftX }: { delay: number; startX: number; drift
       width: 3.5,
       height: 3.5,
       borderRadius: 1.75,
-      backgroundColor: '#FFA000',
+      backgroundColor: '#F3BA45',
       opacity: opacity.value,
       transform: [{ scale: scale.value }],
     };
@@ -132,30 +132,52 @@ function Ember({ delay, startX, driftX }: { delay: number; startX: number; drift
   return <Animated.View style={animatedStyle} />;
 }
 
-export default function Flame({ score }: FlameProps) {
-  const { vowLogs } = useAppStore();
+export default function Flame({ score, displayName }: FlameProps) {
+  const { vowLogs, activeVows } = useAppStore();
 
-  // Watch completed count to trigger pulse
-  const completedCount = Object.values(vowLogs).filter(Boolean).length;
-  const prevCompletedCountRef = useRef(completedCount);
+  const completedVowsCount = activeVows.filter(v => vowLogs[v.id] === true).length;
+  const lapsedCount = activeVows.filter(v => vowLogs[v.id] === false).length;
+  const totalVows = activeVows.length;
+
+  const allCompleted = totalVows > 0 && completedVowsCount === totalVows;
+  const hasLapsed = lapsedCount > 0;
+
+  let scaleModifier = 1.0;
+  let opacityModifier = 1.0;
+  let speedModifier = 1.0;
+  let glowModifier = 1.0;
+  let emberCount = 5;
+
+  if (allCompleted) {
+    scaleModifier = 1.15;
+    opacityModifier = 1.1;
+    speedModifier = 0.7;
+    glowModifier = 1.3;
+    emberCount = 8;
+  } else if (hasLapsed) {
+    scaleModifier = 0.65;
+    opacityModifier = 0.6;
+    speedModifier = 1.6;
+    glowModifier = 0.45;
+    emberCount = 2;
+  }
+
+  const prevCompletedCountRef = useRef(completedVowsCount);
   const [pulseActive, setPulseActive] = useState(false);
   const [completionId, setCompletionId] = useState(0);
 
-  // Shared values for breathing animations
   const outerBreath = useSharedValue(1);
   const middleBreath = useSharedValue(1);
   const innerBreath = useSharedValue(1);
 
-  // Shared values for sway/rotation
   const outerRotate = useSharedValue(0);
   const middleRotate = useSharedValue(0);
   const innerRotate = useSharedValue(0);
 
-  // Shared values for completions
   const pulseScale = useSharedValue(1);
 
   useEffect(() => {
-    if (completedCount > prevCompletedCountRef.current) {
+    if (completedVowsCount > prevCompletedCountRef.current) {
       setPulseActive(true);
       setCompletionId(prev => prev + 1);
       
@@ -170,29 +192,38 @@ export default function Flame({ score }: FlameProps) {
       );
 
       const timer = setTimeout(() => setPulseActive(false), 1200);
-      prevCompletedCountRef.current = completedCount;
+      prevCompletedCountRef.current = completedVowsCount;
       return () => clearTimeout(timer);
     } else {
-      prevCompletedCountRef.current = completedCount;
+      prevCompletedCountRef.current = completedVowsCount;
     }
-  }, [completedCount, pulseScale]);
+  }, [completedVowsCount, pulseScale]);
 
-  // Adjust breathing speeds dynamically based on discipline score
+  const baseScale = 0.5 + (score / 100) * 0.5;
+  const finalScale = Math.max(0.35, Math.min(1.2, baseScale * scaleModifier));
+
+  const opacity = 0.45 + (score / 100) * 0.55;
+  const finalOpacity = Math.max(0.35, Math.min(1.0, opacity * opacityModifier));
+
+  const breathDur = 4.5 - (score / 100) * 2.0;
+  const finalBreathDur = Math.max(1.8, Math.min(6.0, breathDur * speedModifier));
+
+  const glowRadius = 15 + (score / 100) * 25;
+  const finalGlowRadius = Math.max(8, Math.min(50, glowRadius * glowModifier));
+
   useEffect(() => {
-    const breathDur = 4.5 - (score / 100) * 2.0;
-
     outerBreath.value = withRepeat(
-      withTiming(1.02, { duration: (breathDur * 1.3) * 1000 / 2, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1.02, { duration: (finalBreathDur * 1.3) * 1000 / 2, easing: Easing.inOut(Easing.ease) }),
       -1,
       true
     );
     middleBreath.value = withRepeat(
-      withTiming(1.04, { duration: breathDur * 1000 / 2, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1.04, { duration: finalBreathDur * 1000 / 2, easing: Easing.inOut(Easing.ease) }),
       -1,
       true
     );
     innerBreath.value = withRepeat(
-      withTiming(1.03, { duration: (breathDur * 0.8) * 1000 / 2, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1.03, { duration: (finalBreathDur * 0.8) * 1000 / 2, easing: Easing.inOut(Easing.ease) }),
       -1,
       true
     );
@@ -212,22 +243,15 @@ export default function Flame({ score }: FlameProps) {
       -1,
       true
     );
-  }, [score, outerBreath, middleBreath, innerBreath, outerRotate, middleRotate, innerRotate]);
+  }, [finalBreathDur, outerBreath, middleBreath, innerBreath, outerRotate, middleRotate, innerRotate]);
 
-  // Calculate baseline values based on discipline score
-  const baseScale = 0.5 + (score / 100) * 0.5;
-  const opacity = 0.45 + (score / 100) * 0.55;
-  const glowRadius = 15 + (score / 100) * 25;
-
-  // Reanimated style definitions for a 160x160 frame
-  // Center of 160x160 is (80, 80).
   const outerStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { translateY: 70 }, // Outer base is at y = 150 (offset = 70)
-        { scale: baseScale * outerBreath.value * pulseScale.value },
+        { translateY: 26 }, // Pivot at wick tip y = 106
+        { scale: finalScale * outerBreath.value * pulseScale.value },
         { rotate: `${outerRotate.value}deg` },
-        { translateY: -70 }
+        { translateY: -12 }
       ]
     };
   });
@@ -235,10 +259,10 @@ export default function Flame({ score }: FlameProps) {
   const middleStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { translateY: 65 }, // Middle base is at y = 145 (offset = 65)
-        { scale: baseScale * middleBreath.value * pulseScale.value },
+        { translateY: 26 },
+        { scale: finalScale * middleBreath.value * pulseScale.value },
         { rotate: `${middleRotate.value}deg` },
-        { translateY: -65 }
+        { translateY: -12 }
       ]
     };
   });
@@ -246,10 +270,10 @@ export default function Flame({ score }: FlameProps) {
   const innerStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { translateY: 60 }, // Inner base is at y = 140 (offset = 60)
-        { scale: baseScale * innerBreath.value * pulseScale.value },
+        { translateY: 26 },
+        { scale: finalScale * innerBreath.value * pulseScale.value },
         { rotate: `${innerRotate.value}deg` },
-        { translateY: -60 }
+        { translateY: -12 }
       ]
     };
   });
@@ -257,11 +281,24 @@ export default function Flame({ score }: FlameProps) {
   const glowStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { scale: baseScale * middleBreath.value * pulseScale.value }
+        { scale: finalScale * middleBreath.value * pulseScale.value }
       ],
-      opacity: opacity * 0.15,
+      opacity: finalOpacity * 0.18,
     };
   });
+
+  const allEmbers = [
+    { delay: 0, startX: 80, driftX: -20 },
+    { delay: 700, startX: 88, driftX: 15 },
+    { delay: 1300, startX: 72, driftX: -12 },
+    { delay: 2000, startX: 82, driftX: 8 },
+    { delay: 2800, startX: 76, driftX: -4 },
+    { delay: 400, startX: 84, driftX: 12 },
+    { delay: 1000, startX: 78, driftX: -15 },
+    { delay: 1800, startX: 74, driftX: 5 },
+  ];
+
+  const visibleEmbers = allEmbers.slice(0, emberCount);
 
   return (
     <View style={styles.container}>
@@ -271,24 +308,58 @@ export default function Flame({ score }: FlameProps) {
           styles.glowBack, 
           glowStyle, 
           { 
-            shadowRadius: glowRadius,
-            shadowColor: theme.colors.primary,
-            backgroundColor: theme.colors.primary,
+            shadowRadius: finalGlowRadius,
+            shadowColor: '#F3BA45',
+            backgroundColor: '#F3BA45',
           }
         ]} 
       />
+
+      {/* Static Candle Pedestal & Matte Ceramic Cup */}
+      <Canvas style={styles.canvas}>
+        {/* 1. Pedestal Base */}
+        <Path path="M 40 143 Q 82 150, 124 143 L 122 146 Q 82 152, 42 146 Z">
+          <LinearGradient
+            start={vec(40, 143)}
+            end={vec(124, 143)}
+            colors={['#14171C', '#1C2027', '#14171C']}
+          />
+        </Path>
+        
+        {/* 2. Ceramic Container */}
+        <Path path="M 54 112 C 54 128, 58 139, 82 139 C 106 139, 110 128, 110 112 Z">
+          <LinearGradient
+            start={vec(82, 112)}
+            end={vec(82, 139)}
+            colors={['#1C2027', '#14171C', '#0B0C0E']}
+          />
+        </Path>
+
+        {/* Rim Inner Depth */}
+        <Path path="M 54 112 Q 82 115, 110 112 Q 82 109, 54 112 Z" color="#262A33" strokeWidth={0.5} style="stroke" />
+
+        {/* Wick */}
+        <Path path="M 82 112 C 82 109, 83 107, 83 106" strokeWidth={2} style="stroke" strokeCap="round" color="#121212" />
+      </Canvas>
+
+      {/* Subtle Engraved Moniker */}
+      <View style={styles.engravingContainer} pointerEvents="none">
+        <Text style={styles.engravedText}>
+          {displayName ? displayName.toUpperCase() : 'VAJRA'}
+        </Text>
+      </View>
 
       {/* Layer 1: Outer Flame */}
       <Animated.View style={[StyleSheet.absoluteFill, outerStyle]}>
         <Canvas style={styles.canvas}>
           <Path
-            path="M 80 150 C 40 120, 20 80, 80 10 C 140 80, 120 120, 80 150 Z"
-            opacity={opacity * 0.7}
+            path="M 82 92 C 52 75, 42 45, 82 12 C 122 45, 112 75, 82 92 Z"
+            opacity={finalOpacity * 0.7}
           >
             <LinearGradient
-              start={vec(80, 150)}
-              end={vec(80, 10)}
-              colors={['#8A2E2E', theme.colors.primary]}
+              start={vec(82, 92)}
+              end={vec(82, 12)}
+              colors={['#A33A3A', '#F3BA45']}
             />
           </Path>
         </Canvas>
@@ -298,13 +369,13 @@ export default function Flame({ score }: FlameProps) {
       <Animated.View style={[StyleSheet.absoluteFill, middleStyle]}>
         <Canvas style={styles.canvas}>
           <Path
-            path="M 80 145 C 50 115, 35 85, 80 30 C 125 85, 110 115, 80 145 Z"
-            opacity={opacity * 0.9}
+            path="M 82 92 C 60 78, 52 55, 82 24 C 112 55, 104 78, 82 92 Z"
+            opacity={finalOpacity * 0.9}
           >
             <LinearGradient
-              start={vec(80, 145)}
-              end={vec(80, 30)}
-              colors={[theme.colors.primary, '#FF9F00']}
+              start={vec(82, 92)}
+              end={vec(82, 24)}
+              colors={['#F3BA45', '#FFE48A']}
             />
           </Path>
         </Canvas>
@@ -314,24 +385,22 @@ export default function Flame({ score }: FlameProps) {
       <Animated.View style={[StyleSheet.absoluteFill, innerStyle]}>
         <Canvas style={styles.canvas}>
           <Path
-            path="M 80 140 C 60 110, 50 90, 80 50 C 110 90, 100 110, 80 140 Z"
-            opacity={opacity}
+            path="M 82 92 C 68 82, 62 65, 82 38 C 102 65, 96 82, 82 92 Z"
+            opacity={finalOpacity}
           >
             <LinearGradient
-              start={vec(80, 140)}
-              end={vec(80, 50)}
-              colors={['#FF9F00', '#FFFFFF']}
+              start={vec(82, 92)}
+              end={vec(82, 38)}
+              colors={['#FFE48A', '#FFFFFF']}
             />
           </Path>
         </Canvas>
       </Animated.View>
 
       {/* Floating ambient embers */}
-      <Ember delay={0} startX={80} driftX={-20} />
-      <Ember delay={700} startX={88} driftX={15} />
-      <Ember delay={1300} startX={72} driftX={-12} />
-      <Ember delay={2000} startX={82} driftX={8} />
-      <Ember delay={2800} startX={76} driftX={-4} />
+      {visibleEmbers.map((ember, i) => (
+        <Ember key={i} delay={ember.delay} startX={ember.startX} driftX={ember.driftX} />
+      ))}
 
       {/* Transient spark group triggered on completion */}
       {pulseActive && (
@@ -366,5 +435,27 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     position: 'absolute',
+  },
+  engravingContainer: {
+    position: 'absolute',
+    left: 40,
+    width: 84,
+    top: 119,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  engravedText: {
+    fontSize: 6.5,
+    fontFamily: theme.typography.fontFamily.displayBold,
+    color: '#F3BA45',
+    opacity: 0.75,
+    letterSpacing: 2,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    ...Platform.select({
+      web: {
+        textShadow: '0 0.5px 0.5px rgba(0,0,0,0.5)',
+      }
+    })
   },
 });

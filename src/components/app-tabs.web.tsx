@@ -10,6 +10,8 @@ import { Pressable, View, StyleSheet, Platform } from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { Spacing, Fonts } from '@/constants/theme';
+import { useTheme } from '@/theme';
+import { useAppStore } from '../store/useAppStore';
 
 // Clean geometric icons using standard HTML SVG components on Web
 const HomeIcon = ({ color }: { color: string }) => (
@@ -47,9 +49,11 @@ interface CustomTabButtonProps extends TabTriggerSlotProps {
 }
 
 export default function AppTabs() {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.mobileFrame}>
+    <View style={[styles.outerContainer, { backgroundColor: colors.bg.outerBg }]}>
+      <View style={[styles.mobileFrame, { backgroundColor: colors.bg.mobileFrame, borderColor: colors.border.viewport }]}>
         <Tabs style={{ flex: 1, height: '100%' }}>
           <TabSlot style={{ flex: 1, height: '100%' }} />
           <TabList asChild>
@@ -66,6 +70,7 @@ export default function AppTabs() {
               <TabTrigger name="profile" href="/profile" asChild>
                 <TabButton name="profile">Profile</TabButton>
               </TabTrigger>
+              <TabTrigger name="codex" href="/codex" style={{ display: 'none' }} />
             </CustomTabList>
           </TabList>
         </Tabs>
@@ -75,12 +80,18 @@ export default function AppTabs() {
 }
 
 export function TabButton({ name, children, isFocused, ...props }: CustomTabButtonProps) {
-  const iconColor = isFocused ? '#00E5FF' : '#5A5A66';
+  const { colors } = useTheme();
+  const activeGold = colors.primary;
+  const iconColor = isFocused ? activeGold : colors.text.secondary;
 
   return (
-    <Pressable {...props} style={({ pressed }) => [styles.tabButton, pressed && styles.pressed]}>
+    <Pressable 
+      {...props} 
+      style={({ pressed }) => [styles.tabButton, pressed && styles.pressed]}
+      {...(Platform.OS === 'web' ? { className: 'hover-glow' } : {})}
+    >
       <View style={styles.tabButtonContent}>
-        {isFocused && <View style={styles.activeHalo} pointerEvents="none" />}
+        {isFocused && <View style={[styles.activeHalo, { backgroundColor: activeGold + '22' }]} pointerEvents="none" />}
         <View style={styles.iconWrapper}>
           {name === 'index' && <HomeIcon color={iconColor} />}
           {name === 'checkin' && <LogIcon color={iconColor} />}
@@ -91,21 +102,34 @@ export function TabButton({ name, children, isFocused, ...props }: CustomTabButt
           type="small"
           style={[
             styles.tabButtonLabel,
-            { color: isFocused ? '#00E5FF' : '#5A5A66' },
+            { color: isFocused ? activeGold : colors.text.secondary },
             isFocused && styles.tabButtonLabelActive
           ]}
         >
           {children}
         </ThemedText>
-        {isFocused && <View style={styles.activeIndicator} />}
+        {isFocused && <View style={[styles.activeIndicator, { backgroundColor: activeGold }]} />}
       </View>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
+  const { showOnboarding } = useAppStore();
+  const { colors } = useTheme();
+
   return (
-    <View {...props} style={styles.tabListContainer}>
+    <View 
+      {...props} 
+      style={[
+        styles.tabListContainer,
+        {
+          backgroundColor: colors.bg.surface,
+          borderTopColor: colors.border.default,
+        },
+        showOnboarding && ({ display: 'none' } as any)
+      ] as any}
+    >
       <View style={styles.innerContainer}>
         {props.children}
       </View>
@@ -116,26 +140,16 @@ export function CustomTabList(props: TabListProps) {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#050508', // obsidian backdrop
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      web: {
-        height: '100vh',
-      },
-      default: {
-        height: '100%',
-      }
-    }),
+    height: '100%',
   },
   mobileFrame: {
     width: '100%',
     maxWidth: 430,
     height: '100%',
-    backgroundColor: '#08080C',
-    borderLeftWidth: 0.5,
-    borderRightWidth: 0.5,
-    borderColor: '#12121A',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -145,18 +159,22 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     width: '100%',
-    backgroundColor: '#0D0D14', // obsidian dark base for tab bar
-    borderTopWidth: 0.5,
-    borderTopColor: '#1C1C24',
-    paddingBottom: Spacing.four, // breathing space for mobile home indicator
+    borderTopWidth: 1,
+    paddingBottom: Spacing.four,
     paddingTop: Spacing.two,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(24px)',
+        boxShadow: '0 -4px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
+      }
+    })
   },
   innerContainer: {
     flexDirection: 'row',
     width: '100%',
-    maxWidth: 430, // constrain tab buttons to same mobile width
+    maxWidth: 430,
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
@@ -166,6 +184,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.one,
+    borderRadius: 8,
+    marginHorizontal: 4,
   },
   tabButtonContent: {
     alignItems: 'center',
@@ -185,20 +205,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     letterSpacing: 0.5,
   },
-  tabButtonLabelActive: {
-    ...Platform.select({
-      web: {
-        textShadow: '0 0 12px rgba(0, 229, 255, 0.4)',
-      },
-    }),
-  },
+  tabButtonLabelActive: {},
   activeHalo: {
     position: 'absolute',
     top: -2,
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 229, 255, 0.06)',
     ...Platform.select({
       web: {
         filter: 'blur(4px)',
@@ -209,7 +222,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#00E5FF',
     position: 'absolute',
     bottom: -8,
   },
@@ -217,4 +229,3 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
-

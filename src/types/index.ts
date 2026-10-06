@@ -14,6 +14,7 @@ export interface User {
   wake_target: string;  // HH:MM:SS format
   squad_id: string | null;
   last_active_at: string;
+  avatar_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +27,23 @@ export interface Behavior {
   created_at: string;
 }
 
+export type ArchetypeKey = 'WARRIOR' | 'SCHOLAR' | 'MONK' | 'GUARDIAN' | 'WANDERER' | 'FORGE';
+
+export interface CustomVowMetadata {
+  id: string;
+  habit: string;
+  commitment: string;
+  category: 'BODY' | 'MIND' | 'FOCUS';
+  difficulty: DifficultyTier;
+  archetype: ArchetypeKey;
+  cardTitle: string;
+  guardian: string;
+  quote: string;
+  artworkKey: string;
+  isCustom: true;
+  createdAt: string;
+}
+
 export interface UserVow {
   id: string;
   user_id: string;
@@ -35,6 +53,7 @@ export interface UserVow {
   weight: number; // Locked to 1.0 for custom vows
   frequency: 'daily' | 'weekly';
   is_active: boolean;
+  is_custom?: boolean;
   created_at: string;
 }
 
@@ -62,6 +81,36 @@ export interface Squad {
   name: string;
   invite_code: string;
   created_at: string;
+  journey_start_date?: string;
+  journey_days_total?: number; // Default 30 days
+  status?: 'building' | 'active' | 'archived';
+  global_rank?: number;
+}
+
+export type MemberDailyStatus = 'completed' | 'pending' | 'missed';
+
+export interface SquadMember {
+  id: string;
+  display_name: string;
+  identity_path: PathType;
+  discipline_score: number;
+  streak: number;
+  daily_status: MemberDailyStatus;
+  last_active_at: string;
+  rank: number; // Rank inside squad (1 to 4)
+  is_me: boolean;
+  inactive_days: number;
+  replaced_member_name?: string | null;
+  avatar_color?: string;
+  avatar_url?: string | null;
+}
+
+export interface MatchmakingState {
+  status: 'idle' | 'searching' | 'checking_squads' | 'creating_squad' | 'waiting_for_seats' | 'squad_assembled';
+  status_message: string;
+  filled_seats: number;
+  total_seats: number;
+  members: (SquadMember | null)[];
 }
 
 export interface SquadMessage {

@@ -7,12 +7,14 @@ import {
   TextInput, 
   ScrollView, 
   KeyboardAvoidingView, 
-  Platform 
+  Platform,
+  Image
 } from 'react-native';
 import { useAppStore, getVowConfig } from '../store/useAppStore';
-import { theme } from '../theme';
+import { theme, useTheme, typography } from '../theme';
 import { Text } from './Text';
 import { Card } from './Card';
+import { getMissionCardData } from '../utils/cardMapping';
 
 interface VowDetailModalProps {
   vowId: string | null;
@@ -21,6 +23,7 @@ interface VowDetailModalProps {
 }
 
 export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps) {
+  const { colors } = useTheme();
   const { 
     activeVows, 
     vowLogs, 
@@ -37,18 +40,23 @@ export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps)
   const [localProgress, setLocalProgress] = useState<number>(0);
   const [localCompleted, setLocalCompleted] = useState<boolean>(false);
   const [localReflection, setLocalReflection] = useState<string>('');
+  const [showBrokenConfirm, setShowBrokenConfirm] = useState<boolean>(false);
+  const [brokenReflection, setBrokenReflection] = useState<string>('');
 
   useEffect(() => {
     if (vow) {
       setLocalProgress(vowProgress[vow.id] || 0);
       setLocalCompleted(vowLogs[vow.id] || false);
       setLocalReflection(vowReflections[vow.id] || '');
+      setShowBrokenConfirm(false);
+      setBrokenReflection('');
     }
   }, [vowId, vow, visible]);
 
   if (!vow) return null;
 
   const config = getVowConfig(vow.custom_name || '');
+  const cardData = getMissionCardData(vow.custom_name || '');
 
   // Quick addition logic based on vow type/unit
   const getQuickAddSteps = () => {
@@ -99,40 +107,46 @@ export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps)
     >
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.backdrop}
+        style={[styles.backdrop, { backgroundColor: colors.bg.overlayHeavy }]}
       >
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}>
           {/* Top Notch bar */}
-          <View style={styles.notch} />
+          <View style={[styles.notch, { backgroundColor: colors.border.dashed }]} />
           
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.vowIcon}>{config.icon}</Text>
+            <View style={[styles.header, { borderBottomColor: colors.border.separator }]}>
+              <View style={styles.modalCardThumbnailContainer}>
+                <Image 
+                  source={cardData.image} 
+                  style={styles.modalCardThumbnail}
+                  resizeMode="cover"
+                />
+              </View>
               <View style={styles.titleGroup}>
-                <Text style={styles.vowName}>{vow.custom_name}</Text>
-                <Text style={styles.difficultyTag}>
-                  {vow.difficulty.toUpperCase()} • ×{vow.weight.toFixed(1)} WEIGHT
+                <Text style={[styles.vowName, { color: colors.text.primary }]}>{vow.custom_name}</Text>
+                <Text style={[styles.difficultyTag, { color: colors.text.secondary }]}>
+                  {cardData.title.toUpperCase()} • {vow.difficulty.toUpperCase()} • ×{vow.weight.toFixed(1)} WEIGHT
                 </Text>
               </View>
             </View>
 
             {/* Completion UI - Target based vs Binary */}
             {config.isTarget ? (
-              <Card style={styles.sectionCard}>
-                <Text style={styles.sectionLabel}>PROGRESS STATUS</Text>
+              <Card style={[styles.sectionCard, { backgroundColor: colors.bg.card, borderColor: colors.border.default }]}>
+                <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>PROGRESS STATUS</Text>
                 
                 {/* Stats row */}
                 <View style={styles.statsRow}>
                   <View>
-                    <Text style={styles.statsSub}>Current</Text>
-                    <Text style={styles.statsValue}>
+                    <Text style={[styles.statsSub, { color: colors.text.secondary }]}>Current</Text>
+                    <Text style={[styles.statsValue, { color: colors.text.primary }]}>
                       {localProgress} <Text style={styles.unitText}>{config.unit}</Text>
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.statsSub}>Target</Text>
-                    <Text style={styles.statsValue}>
+                    <Text style={[styles.statsSub, { color: colors.text.secondary }]}>Target</Text>
+                    <Text style={[styles.statsValue, { color: colors.text.primary }]}>
                       {config.target} <Text style={styles.unitText}>{config.unit}</Text>
                     </Text>
                   </View>
@@ -140,22 +154,22 @@ export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps)
 
                 {/* Progress bar */}
                 <View style={styles.progressContainer}>
-                  <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+                  <View style={[styles.progressBar, { width: `${progressPercent}%`, backgroundColor: colors.primary }]} />
                 </View>
 
                 {/* Plus / Minus Adjusters */}
                 <View style={styles.adjusterRow}>
                   <TouchableOpacity 
-                    style={styles.adjustBtn} 
+                    style={[styles.adjustBtn, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast }]} 
                     onPress={() => handleAdjustProgress(-quickSteps[0])}
                   >
-                    <Text style={styles.adjustBtnText}>-{quickSteps[0]}</Text>
+                    <Text style={[styles.adjustBtnText, { color: colors.text.primary }]}>-{quickSteps[0]}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={styles.adjustBtn} 
+                    style={[styles.adjustBtn, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast }]} 
                     onPress={() => handleAdjustProgress(quickSteps[0])}
                   >
-                    <Text style={styles.adjustBtnText}>+{quickSteps[0]}</Text>
+                    <Text style={[styles.adjustBtnText, { color: colors.text.primary }]}>+{quickSteps[0]}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -164,63 +178,121 @@ export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps)
                   {quickSteps.map((step) => (
                     <TouchableOpacity 
                       key={step} 
-                      style={styles.shortcutBtn}
+                      style={[styles.shortcutBtn, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast }]}
                       onPress={() => handleAdjustProgress(step)}
                     >
-                      <Text style={styles.shortcutText}>+{step} {config.unit}</Text>
+                      <Text style={[styles.shortcutText, { color: colors.text.secondary }]}>+{step} {config.unit}</Text>
                     </TouchableOpacity>
                   ))}
                   <TouchableOpacity 
-                    style={[styles.shortcutBtn, styles.completeBtn]}
+                    style={[styles.shortcutBtn, styles.completeBtn, { borderColor: colors.primary, backgroundColor: 'rgba(201, 154, 90, 0.12)' }]}
                     onPress={handleSetComplete}
                   >
-                    <Text style={styles.completeBtnText}>Complete</Text>
+                    <Text style={[styles.completeBtnText, { color: colors.primary }]}>Complete</Text>
                   </TouchableOpacity>
                 </View>
               </Card>
             ) : (
-              <Card style={styles.sectionCard}>
-                <Text style={styles.sectionLabel}>VOW INTEGRITY</Text>
-                <Text style={styles.questionText}>Did you keep your vow today?</Text>
-
-                <View style={styles.binaryToggleRow}>
-                  <TouchableOpacity 
-                    style={[
-                      styles.binaryBtn, 
-                      styles.missBtn, 
-                      !localCompleted && styles.missActive
-                    ]}
-                    onPress={() => setLocalCompleted(false)}
-                  >
-                    <Text style={[styles.binaryText, !localCompleted && styles.activeText]}>
-                      ✗ Vow Broken
-                    </Text>
-                  </TouchableOpacity>
+              showBrokenConfirm ? (
+                <Card style={[styles.sectionCard, { backgroundColor: colors.bg.card, borderColor: colors.danger }]}>
+                  <Text style={[styles.sectionLabel, { color: colors.danger }]}>VOW STATUS</Text>
+                  <Text style={[styles.confirmTitleText, { color: colors.danger }]}>Mark this vow as missed today?</Text>
                   
-                  <TouchableOpacity 
-                    style={[
-                      styles.binaryBtn, 
-                      styles.keepBtn, 
-                      localCompleted && styles.keepActive
-                    ]}
-                    onPress={() => setLocalCompleted(true)}
-                  >
-                    <Text style={[styles.binaryText, localCompleted && styles.activeText]}>
-                      ✓ Vow Kept
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
+                  <View style={{ gap: 4, marginTop: 4 }}>
+                    <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>ADD A NOTE (OPTIONAL)</Text>
+                    <Text style={[styles.questionText, { color: colors.text.primary }]}>What got in the way?</Text>
+                  </View>
+
+                  <TextInput
+                    style={[styles.textArea, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast, color: colors.text.primary }]}
+                    multiline={true}
+                    numberOfLines={3}
+                    placeholder="e.g. Unexpected conflict, tired, or lost focus..."
+                    placeholderTextColor="#5A5A66"
+                    value={brokenReflection}
+                    onChangeText={setBrokenReflection}
+                  />
+
+                  <View style={styles.confirmActionRow}>
+                    <TouchableOpacity 
+                      style={[styles.confirmCancelBtn, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast }]} 
+                      onPress={() => setShowBrokenConfirm(false)}
+                    >
+                      <Text style={[styles.confirmCancelText, { color: colors.text.secondary }]}>CANCEL</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.confirmBrokenBtn, { backgroundColor: colors.danger }]} 
+                      onPress={async () => {
+                        setLocalCompleted(false);
+                        const finalReflection = brokenReflection.trim() || 'Missed vow today.';
+                        setLocalReflection(finalReflection);
+                        
+                        await checkInVow(vow.id, false);
+                        await updateVowReflection(vow.id, finalReflection);
+                        
+                        setShowBrokenConfirm(false);
+                        onClose();
+                      }}
+                    >
+                      <Text style={styles.confirmBrokenText}>CONFIRM MISSED</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Card>
+              ) : (
+                <Card style={[styles.sectionCard, { backgroundColor: colors.bg.card, borderColor: colors.border.default }]}>
+                  <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>VOW STATUS</Text>
+                  <Text style={[styles.questionText, { color: colors.text.primary }]}>Did you keep your vow today?</Text>
+
+                  <View style={styles.binaryToggleRow}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.binaryBtn, 
+                        styles.missBtn, 
+                        { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast },
+                        !localCompleted && { borderColor: colors.danger, backgroundColor: 'rgba(163, 92, 92, 0.15)' }
+                      ]}
+                      onPress={() => setShowBrokenConfirm(true)}
+                    >
+                      <Text style={[
+                        styles.binaryText, 
+                        { color: colors.text.secondary },
+                        !localCompleted && { color: colors.danger, fontWeight: 'bold' }
+                      ]}>
+                        MISSED VOW
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[
+                        styles.binaryBtn, 
+                        styles.keepBtn, 
+                        { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast },
+                        localCompleted && { borderColor: colors.primary, backgroundColor: 'rgba(201, 154, 90, 0.15)' }
+                      ]}
+                      onPress={() => setLocalCompleted(true)}
+                    >
+                      <Text style={[
+                        styles.binaryText, 
+                        { color: colors.text.secondary },
+                        localCompleted && { color: colors.primary, fontWeight: 'bold' }
+                      ]}>
+                        KEPT VOW ✓
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </Card>
+              )
             )}
 
-            {/* Daily Reflection */}
-            <Card style={styles.sectionCard}>
-              <Text style={styles.sectionLabel}>DAILY REFLECTION</Text>
+            {/* Daily Reflection / Note */}
+            <Card style={[styles.sectionCard, { backgroundColor: colors.bg.card, borderColor: colors.border.default }]}>
+              <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>ADD A NOTE</Text>
               <TextInput
-                style={styles.textArea}
+                style={[styles.textArea, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast, color: colors.text.primary }]}
                 multiline={true}
                 numberOfLines={3}
-                placeholder="What made today difficult? What helped you succeed today?"
+                placeholder="Record your thoughts, hurdles, or insights for this vow..."
                 placeholderTextColor="#5A5A66"
                 value={localReflection}
                 onChangeText={setLocalReflection}
@@ -229,12 +301,18 @@ export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps)
 
             {/* Action Buttons */}
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-                <Text style={styles.cancelText}>CANCEL</Text>
+              <TouchableOpacity 
+                style={[styles.cancelBtn, { backgroundColor: colors.bg.surfaceAlt, borderColor: colors.border.lowContrast }]} 
+                onPress={onClose}
+              >
+                <Text style={[styles.cancelText, { color: colors.text.secondary }]}>CANCEL</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveText}>RECORD DISCIPLINE</Text>
+              <TouchableOpacity 
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]} 
+                onPress={handleSave}
+              >
+                <Text style={styles.saveText}>SAVE</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -247,74 +325,80 @@ export function VowDetailModal({ vowId, visible, onClose }: VowDetailModalProps)
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(5, 5, 8, 0.7)', // Translucent overlay
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: 'rgba(10, 10, 15, 0.95)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 0.5,
-    borderColor: '#1C1C2C',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
     maxHeight: '90%',
     ...Platform.select({
       web: {
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.4)',
+        backdropFilter: 'blur(25px)',
+        boxShadow: '0 -8px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
       }
     })
   },
   notch: {
-    width: 40,
+    width: 44,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#272733',
     alignSelf: 'center',
-    marginTop: 12,
+    marginTop: 14,
     marginBottom: 8,
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    gap: 20,
+    gap: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#161626',
+    gap: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
-  vowIcon: {
-    fontSize: 36,
+  modalCardThumbnailContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(201, 154, 90, 0.35)',
+  },
+  modalCardThumbnail: {
+    width: '100%',
+    height: '100%',
   },
   titleGroup: {
     flex: 1,
     gap: 4,
   },
   vowName: {
-    fontSize: theme.typography.fontSize.md,
-    fontFamily: theme.typography.fontFamily.medium,
-    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: typography.fontFamily.displayBold,
+    fontWeight: '700',
+    color: '#F5F6F8',
   },
   difficultyTag: {
-    fontSize: 9,
-    fontFamily: theme.typography.fontFamily.mono,
-    color: theme.colors.text.tertiary,
-    letterSpacing: 1,
+    fontSize: 10,
+    fontFamily: typography.fontFamily.uiBold,
+    letterSpacing: 1.2,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   sectionCard: {
-    backgroundColor: 'rgba(15, 15, 24, 0.75)',
-    borderColor: '#1F1F35',
     padding: 16,
-    gap: 14,
+    gap: 12,
+    borderRadius: 16,
   },
   sectionLabel: {
-    fontSize: 9,
-    fontFamily: theme.typography.fontFamily.mono,
-    color: theme.colors.text.tertiary,
-    letterSpacing: 1.5,
+    fontSize: 10,
+    fontFamily: typography.fontFamily.uiBold,
+    letterSpacing: 1.2,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   statsRow: {
     flexDirection: 'row',
@@ -322,36 +406,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statsSub: {
-    fontSize: 9,
-    fontFamily: theme.typography.fontFamily.medium,
-    color: theme.colors.text.tertiary,
+    fontSize: 10,
+    fontFamily: typography.fontFamily.uiMedium,
     marginBottom: 4,
+    fontWeight: '500',
+    color: '#8A91A0',
   },
   statsValue: {
     fontSize: 24,
-    fontFamily: theme.typography.fontFamily.mono,
-    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
+    color: '#F5F6F8',
   },
   unitText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.text.secondary,
+    fontSize: 12,
+    color: '#8A91A0',
+    fontFamily: typography.fontFamily.uiMedium,
   },
   progressContainer: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#1E1E2A',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     overflow: 'hidden',
     marginTop: 4,
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#00E5FF', // Electric Cyan matching logo
     borderRadius: 3,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 0 10px rgba(0, 229, 255, 0.5)',
-      }
-    })
   },
   adjusterRow: {
     flexDirection: 'row',
@@ -359,17 +440,18 @@ const styles = StyleSheet.create({
   },
   adjustBtn: {
     flex: 1,
-    backgroundColor: '#12121E',
-    borderWidth: 0.5,
-    borderColor: '#1E1E2E',
-    borderRadius: theme.spacing.borderRadius.card,
+    borderWidth: 1,
+    borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
+    ...Platform.select({
+      web: { cursor: 'pointer' }
+    })
   },
   adjustBtnText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily.mono,
+    fontSize: 13,
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
   },
   shortcutRow: {
     flexDirection: 'row',
@@ -379,30 +461,30 @@ const styles = StyleSheet.create({
   shortcutBtn: {
     flex: 1,
     minWidth: '28%',
-    backgroundColor: '#12121E',
-    borderWidth: 0.5,
-    borderColor: '#1E1E2E',
-    borderRadius: theme.spacing.borderRadius.card,
+    borderWidth: 1,
+    borderRadius: 8,
     paddingVertical: 8,
     alignItems: 'center',
+    ...Platform.select({
+      web: { cursor: 'pointer' }
+    })
   },
   shortcutText: {
     fontSize: 10,
-    color: theme.colors.text.secondary,
-    fontFamily: theme.typography.fontFamily.mono,
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
   },
   completeBtn: {
-    borderColor: '#00E5FF',
-    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    borderWidth: 1,
   },
   completeBtnText: {
     fontSize: 10,
-    color: '#00E5FF',
-    fontWeight: 'bold',
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   questionText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: '#FFFFFF',
+    fontSize: 14,
     fontFamily: theme.typography.fontFamily.medium,
   },
   binaryToggleRow: {
@@ -413,85 +495,113 @@ const styles = StyleSheet.create({
   binaryBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: theme.spacing.borderRadius.card,
+    borderRadius: 12,
     alignItems: 'center',
-    borderWidth: 0.5,
-    borderColor: '#1E1E2E',
-    backgroundColor: '#12121E',
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      }
+    })
   },
   missBtn: {},
   keepBtn: {},
-  missActive: {
-    borderColor: theme.colors.danger,
-    backgroundColor: `${theme.colors.danger}15`,
-  },
-  keepActive: {
-    borderColor: '#00E5FF', // Cyan instead of gold for vow kept highlight
-    backgroundColor: 'rgba(0, 229, 255, 0.08)',
-  },
   binaryText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.tertiary,
-    fontFamily: theme.typography.fontFamily.mono,
-  },
-  activeText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   textArea: {
-    backgroundColor: '#12121E',
-    borderWidth: 0.5,
-    borderColor: '#1E1E2E',
-    borderRadius: theme.spacing.borderRadius.card,
+    borderWidth: 1,
+    borderRadius: 12,
     padding: 12,
-    color: '#FFFFFF',
-    fontSize: theme.typography.fontSize.sm,
-    minHeight: 80,
+    fontSize: 14,
+    fontFamily: typography.fontFamily.uiMedium,
+    minHeight: 76,
     textAlignVertical: 'top',
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none' as any,
+      }
+    })
   },
   actionRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   cancelBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: theme.spacing.borderRadius.card,
+    borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#12121E',
-    borderWidth: 0.5,
-    borderColor: '#1E1E2E',
+    borderWidth: 1,
+    ...Platform.select({
+      web: { cursor: 'pointer' }
+    })
   },
   cancelText: {
-    fontSize: 11,
-    color: theme.colors.text.secondary,
-    fontFamily: theme.typography.fontFamily.mono,
-    letterSpacing: 1.5,
+    fontSize: 13,
+    fontFamily: typography.fontFamily.uiBold,
+    letterSpacing: 1,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   saveBtn: {
     flex: 2,
     paddingVertical: 14,
-    borderRadius: theme.spacing.borderRadius.card,
+    borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: '#FF5A00', // Vibrant Orange matching the primary inner fire
     ...Platform.select({
-      web: {
-        boxShadow: '0 4px 20px rgba(255, 90, 0, 0.3)',
-      },
-      default: {
-        shadowColor: '#FF5A00',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      }
+      web: { cursor: 'pointer' }
     })
   },
   saveText: {
+    fontSize: 13,
+    color: '#0B0C0E',
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  confirmTitleText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.uiMedium,
+    marginBottom: 4,
+  },
+  confirmActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  confirmCancelText: {
     fontSize: 11,
-    color: '#05050A',
-    fontFamily: theme.typography.fontFamily.mono,
-    fontWeight: 'bold',
-    letterSpacing: 1.5,
+    fontFamily: typography.fontFamily.uiBold,
+    letterSpacing: 1,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  confirmBrokenBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  confirmBrokenText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

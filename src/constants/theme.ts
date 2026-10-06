@@ -1,26 +1,29 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ *
+ * Colors are sourced from the canonical design system in src/theme/colors.ts
  */
 
 import '@/global.css';
 
 import { Platform } from 'react-native';
+import { colors } from '@/theme/colors';
 
 export const Colors = {
   light: {
-    text: '#F0ECE4',
-    background: '#050505',
-    backgroundElement: '#0E0E10',
-    backgroundSelected: '#1E1E22',
-    textSecondary: '#A5A199',
+    text: colors.text.primary,
+    background: colors.bg.primary,
+    backgroundElement: colors.bg.surface,
+    backgroundSelected: colors.bg.surfaceAlt,
+    textSecondary: colors.text.secondary,
   },
   dark: {
-    text: '#F0ECE4',
-    background: '#050505',
-    backgroundElement: '#0E0E10',
-    backgroundSelected: '#1E1E22',
-    textSecondary: '#A5A199',
+    text: colors.text.primary,
+    background: colors.bg.primary,
+    backgroundElement: colors.bg.surface,
+    backgroundSelected: colors.bg.surfaceAlt,
+    textSecondary: colors.text.secondary,
   },
 } as const;
 
@@ -44,10 +47,10 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    sans: 'var(--font-ui)',
+    serif: 'var(--font-display)',
+    rounded: 'var(--font-ui)',
+    mono: 'var(--font-ui)',
   },
 });
 

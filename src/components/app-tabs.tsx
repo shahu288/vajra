@@ -1,11 +1,18 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, View } from 'react-native';
+import { useAppStore } from '../store/useAppStore';
 
 import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const { showOnboarding } = useAppStore();
+
+  if (showOnboarding) {
+    // Return empty or null to prevent rendering tabs bottom bar on native
+    return null;
+  }
 
   return (
     <NativeTabs

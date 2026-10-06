@@ -1,198 +1,380 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, ImageBackground, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppStore, getVowConfig } from '../store/useAppStore';
-import { theme } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { VowDetailModal } from '../components/VowDetailModal';
+import { AtmosphericBackground } from '../components/AtmosphericBackground';
+import { VajraStreakCalendar } from '../components/VajraStreakCalendar';
+import { useAppStore } from '../store/useAppStore';
+import { useTheme, typography } from '../theme';
+import { getLocalDateString } from '../utils/dates';
+import { getMissionCardData } from '../utils/cardMapping';
 
-export default function CheckInScreen() {
+// Historical sample notes to enrich past journal days
+const HISTORICAL_SAMPLE_NOTES: Record<string, Record<string, string>> = {
+  // Offsets from today calculated dynamically or keyed by relative date
+};
+
+export default function LogScreen() {
   const { 
     user, 
     activeVows, 
-    dailyLog, 
     vowLogs, 
-    vowProgress,
-    vowReflections,
-    updateWaterIntake, 
+    vowProgress, 
+    vowReflections, 
+    vowHistoryDates,
+    dailyLog, 
     updateMood,
-    useRecoveryShield
+    useRecoveryShield 
   } = useAppStore();
+
+  const { colors } = useTheme();
+
+  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
   const [selectedVowId, setSelectedVowId] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState<boolean>(false);
 
-  if (!user || !dailyLog) return null;
-
-  const handleWaterIncrement = (amount: number) => {
-    const current = dailyLog.water_ml;
-    const next = Math.max(0, current + amount);
-    updateWaterIntake(next);
-  };
-
-  const handleMoodSelect = (moodName: 'struggling' | 'neutral' | 'focused' | 'on_fire') => {
-    updateMood(moodName);
-  };
-
   const moods = [
-    { key: 'struggling', label: '😢 Struggling', color: theme.colors.danger },
-    { key: 'neutral', label: '😐 Neutral', color: theme.colors.text.secondary },
-    { key: 'focused', label: '🎯 Focused', color: theme.colors.tertiary },
-    { key: 'on_fire', label: '🔥 On Fire', color: theme.colors.primary }
+    { key: 'on_fire', label: 'On Fire 🔥', color: '#48BB78' },
+    { key: 'focused', label: 'Focused ⚡', color: colors.primary },
+    { key: 'neutral', label: 'Neutral 😐', color: '#ECC94B' },
+    { key: 'struggling', label: 'Struggling 🌧️', color: colors.danger },
   ];
 
+  const isToday = selectedDate === todayStr;
+
+  // Format selected date nicely (e.g. "SEPTEMBER 13, 2026")
+  const formattedSelectedDate = useMemo(() => {
+    try {
+      const parts = selectedDate.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+      }
+    } catch {
+      // Fallback
+    }
+    return selectedDate;
+  }, [selectedDate]);
+
+  // Compute stats for selected date
+  const dateStats = useMemo(() => {
+    const total = activeVows.length;
+    if (total === 0) return { kept: 0, total: 0, percentage: 0 };
+
+    if (isToday) {
+      const kept = activeVows.filter(v => vowLogs[v.id] === true).length;
+      const percentage = Math.round((kept / total) * 100);
+      return { kept, total, percentage };
+    }
+
+    // Historical date stats
+    const kept = activeVows.filter(v => vowHistoryDates[v.id]?.includes(selectedDate)).length;
+    const percentage = Math.round((kept / total) * 100);
+    return { kept, total, percentage };
+  }, [isToday, activeVows, vowLogs, vowHistoryDates, selectedDate]);
+
+  // Dynamic sample reflections for past dates so the discipline journal feels authentic
+  const getHistoricalNote = (vowId: string, vowName: string, kept: boolean): string | null => {
+    // Check if user has saved a note for this vow on this specific date
+    const dateKey = `${vowId}_${selectedDate}`;
+    if (vowReflections[dateKey] !== undefined) {
+      return vowReflections[dateKey] || null;
+    }
+
+    if (isToday) {
+      return vowReflections[vowId] || null;
+    }
+
+    // Generate deterministic yet contextual journal reflections for past days
+    const d = new Date(selectedDate);
+    const day = d.getDate();
+    const isEven = (day + vowId.charCodeAt(vowId.length - 1)) % 2 === 0;
+
+    if (!kept) {
+      if (day % 3 === 0) {
+        return "Faced friction today, didn't maintain protocol. Renewing commitment tomorrow.";
+      }
+      return null;
+    }
+
+    if (isEven) {
+      if (vowName.toLowerCase().includes('wake')) {
+        return "Awakened immediately with alarm. Morning routine executed flawlessly.";
+      }
+      if (vowName.toLowerCase().includes('workout') || vowName.toLowerCase().includes('run')) {
+        return "Strong energy, full routine finished with deep focus.";
+      }
+      if (vowName.toLowerCase().includes('media') || vowName.toLowerCase().includes('screen')) {
+        return "Zero unnecessary digital distractions maintained throughout the day.";
+      }
+      return "Maintained discipline without compromise.";
+    }
+
+    return null;
+  };
+
+  const handleOpenVow = (vowId: string) => {
+    if (!isToday) return; // Historical records are read-only
+    setSelectedVowId(vowId);
+    setDetailVisible(true);
+  };
+
+  const handleMoodSelect = (mood: 'struggling' | 'neutral' | 'focused' | 'on_fire') => {
+    if (!isToday) return; // Mood recording applies to today
+    updateMood(mood);
+  };
+
+  const currentShields = user?.recovery_shields || 0;
+
   return (
-    <ImageBackground
-      source={require('../../assets/images/dark_misty_mountains.png')}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      <View style={styles.darkOverlay} />
+    <View style={[styles.container, { backgroundColor: colors.bg.primary }]}>
+      <AtmosphericBackground />
+      <View style={[styles.darkOverlay, { backgroundColor: colors.bg.overlayHeavy }]} pointerEvents="none" />
+
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>DAILY LOG</Text>
-          <Text style={styles.headerSub}>{new Date().toDateString()}</Text>
+        {/* Editorial Screen Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border.separator }]}>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>DISCIPLINE JOURNAL</Text>
+          <Text style={[styles.headerSub, { color: colors.text.secondary }]}>
+            Consistency over intensity • Your sacred log
+          </Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Vow Check-Ins */}
+          {/* Main Feature: Custom Vajra Streak Calendar */}
+          <VajraStreakCalendar
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            activeVows={activeVows}
+            vowLogs={vowLogs}
+            vowHistoryDates={vowHistoryDates}
+            activeStreak={29}
+          />
+
+          {/* Daily Completion Summary */}
+          <View style={[styles.summaryCard, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}>
+            <View style={styles.summaryTopRow}>
+              <View>
+                <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                  {isToday ? "TODAY'S DISCIPLINE" : `${formattedSelectedDate}`}
+                </Text>
+                <Text style={[styles.summaryCount, { color: colors.text.primary }]}>
+                  {dateStats.kept} / {dateStats.total} VOWS KEPT
+                </Text>
+              </View>
+
+              <View style={styles.percentageBadge}>
+                <Text style={[styles.percentageText, { color: colors.primary }]}>
+                  {dateStats.percentage}%
+                </Text>
+              </View>
+            </View>
+
+            {/* 6px Rounded Progress Track */}
+            <View style={styles.progressTrack}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${dateStats.percentage}%` }
+                ]} 
+              />
+            </View>
+          </View>
+
+          {/* That Day's Vows */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>MY VOWS</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text.secondary }]}>
+                {isToday ? "TODAY'S VOWS" : "VOWS RECORDED"}
+              </Text>
+              {isToday && (
+                <Text style={[styles.sectionHint, { color: colors.primary }]}>
+                  TAP TO LOG
+                </Text>
+              )}
+            </View>
+
             {activeVows.map((vow) => {
-              const isCompleted = vowLogs[vow.id] || false;
-              const progress = vowProgress[vow.id] || 0;
-              const note = vowReflections[vow.id] || '';
-              const config = getVowConfig(vow.custom_name || '');
+              const cardData = getMissionCardData(vow.custom_name || '');
               
-              let statusText = 'PENDING';
-              let statusColor = '#8A8A93';
-              
-              if (isCompleted) {
-                statusText = 'HONORED';
-                statusColor = '#5DCAA5';
-              } else if (note !== '' || progress > 0) {
-                statusText = 'LAPSED';
-                statusColor = '#E24B4A';
+              let isKept = false;
+              let isBroken = false;
+              let statusLabel = 'PENDING';
+              let statusColor = colors.text.tertiary;
+
+              if (isToday) {
+                isKept = vowLogs[vow.id] === true;
+                isBroken = vowLogs[vow.id] === false;
+                if (isKept) {
+                  statusLabel = 'KEPT VOW ✓';
+                  statusColor = colors.primary;
+                } else if (isBroken) {
+                  statusLabel = 'MISSED VOW';
+                  statusColor = colors.danger;
+                }
+              } else {
+                // Past day
+                isKept = vowHistoryDates[vow.id]?.includes(selectedDate) || false;
+                isBroken = !isKept;
+                if (isKept) {
+                  statusLabel = 'KEPT VOW ✓';
+                  statusColor = colors.primary;
+                } else {
+                  statusLabel = 'MISSED VOW';
+                  statusColor = colors.danger;
+                }
               }
 
-              const progressPercent = config.isTarget 
-                ? Math.min(100, (progress / config.target) * 100) 
-                : isCompleted ? 100 : 0;
+              const note = getHistoricalNote(vow.id, vow.custom_name || '', isKept);
 
               return (
-                <TouchableOpacity 
-                  key={vow.id} 
-                  style={[
-                    styles.vowCard, 
-                    isCompleted ? styles.vowCardCompleted : (statusText === 'LAPSED' ? styles.vowCardLapsed : styles.vowCardPending)
-                  ]} 
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    setSelectedVowId(vow.id);
-                    setDetailVisible(true);
-                  }}
+                <TouchableOpacity
+                  key={vow.id}
+                  activeOpacity={isToday ? 0.75 : 1}
+                  disabled={!isToday}
+                  onPress={() => handleOpenVow(vow.id)}
                 >
-                  <View style={styles.vowCardHeader}>
-                    <Text style={styles.vowCardIcon}>{config.icon}</Text>
-                    <View style={styles.vowCardTitleGroup}>
-                      <Text style={styles.vowCardName}>{vow.custom_name}</Text>
-                      <Text style={styles.vowCardDifficulty}>
-                        {vow.difficulty.toUpperCase()} • ×{vow.weight.toFixed(1)}
-                      </Text>
+                  <Card 
+                    style={[
+                      styles.vowCard,
+                      { 
+                        backgroundColor: colors.bg.surface, 
+                        borderColor: isKept 
+                          ? 'rgba(201, 154, 90, 0.35)' 
+                          : (isBroken && isToday ? 'rgba(163, 92, 92, 0.35)' : colors.border.lowContrast)
+                      }
+                    ]}
+                  >
+                    {/* Subtle Collectible Card Artwork Layer (15% opacity, positioned right & fading naturally into dark background) */}
+                    <View style={styles.cardArtworkContainer} pointerEvents="none">
+                      <Image 
+                        source={cardData.image} 
+                        style={styles.cardArtworkImage}
+                        resizeMode="cover"
+                      />
+                      {/* Horizontal Gradient: Fades from solid dark surface on left to transparent on right */}
+                      <LinearGradient
+                        colors={[
+                          colors.bg.surface,
+                          'rgba(22, 22, 22, 0.92)',
+                          'rgba(22, 22, 22, 0.45)',
+                          'rgba(22, 22, 22, 0.05)',
+                        ]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                      {/* Vertical Edge Fade: Softens top and bottom borders */}
+                      <LinearGradient
+                        colors={[
+                          'rgba(22, 22, 22, 0.4)',
+                          'transparent',
+                          'rgba(22, 22, 22, 0.45)',
+                        ]}
+                        style={StyleSheet.absoluteFill}
+                      />
                     </View>
-                    <View style={[styles.statusBadge, { borderColor: statusColor, backgroundColor: `${statusColor}10` }]}>
-                      <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-                        {statusText}
-                      </Text>
-                    </View>
-                  </View>
 
-                  {config.isTarget && (
-                    <View style={styles.vowCardProgressSection}>
-                      <View style={styles.vowCardProgressTextRow}>
-                        <Text style={styles.vowCardProgressLabel}>Progress toward commitment</Text>
-                        <Text style={styles.vowCardProgressValue}>
-                          {progress} / {config.target} {config.unit}
-                        </Text>
+                    {/* Foreground Card Content */}
+                    <View style={styles.vowCardContent}>
+                      <View style={styles.vowCardMain}>
+                        <View style={styles.vowCardInfo}>
+                          <Text style={[styles.vowCardName, { color: colors.text.primary }]}>
+                            {vow.custom_name || 'Vow'}
+                          </Text>
+                          <Text style={[styles.vowCardSub, { color: colors.text.secondary }]}>
+                            {(vow.difficulty || 'MEDIUM').toUpperCase()} • ×{(vow.weight || 1).toFixed(1)}
+                          </Text>
+                        </View>
+
+                        {/* Status Indicator Badge */}
+                        <View style={[
+                          styles.statusBadge, 
+                          { 
+                            borderColor: statusColor, 
+                            backgroundColor: isKept 
+                              ? 'rgba(201, 154, 90, 0.12)' 
+                              : (isBroken ? 'rgba(163, 92, 92, 0.12)' : colors.bg.surfaceAlt) 
+                          }
+                        ]}>
+                          <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                            {statusLabel}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.vowCardProgressBarContainer}>
-                        <View style={[styles.vowCardProgressBar, { width: `${progressPercent}%`, backgroundColor: isCompleted ? '#5DCAA5' : '#C8963C' }]} />
-                      </View>
+
+                      {/* Note Snippet */}
+                      {note && (
+                        <View style={[styles.noteSnippet, { backgroundColor: 'rgba(35, 35, 35, 0.85)', borderColor: colors.border.lowContrast }]}>
+                          <Text style={[styles.noteLabel, { color: colors.primary }]}>NOTE</Text>
+                          <Text style={[styles.noteText, { color: colors.text.secondary }]}>
+                            "{note}"
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                  
-                  {note !== '' && (
-                    <View style={styles.reflectionSnippet}>
-                      <Text style={styles.reflectionSnippetLabel}>Reflection:</Text>
-                      <Text style={styles.reflectionSnippetText} numberOfLines={1}>
-                        "{note}"
-                      </Text>
-                    </View>
-                  )}
+                  </Card>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Recovery Shield Prompt */}
-          {!Object.values(vowLogs).every(v => v) && !dailyLog.shield_spent && (
-            <Card style={styles.shieldCard}>
-              <View style={styles.shieldInfo}>
-                <Text style={styles.shieldTitle}>Lapse Detected Today</Text>
-                <Text style={styles.shieldDesc}>
-                  You missed a vow. Spend a Recovery Shield to protect your streak.
+          {/* Recovery Shield Prompt (shown for today only if a vow was broken) */}
+          {isToday && Object.values(vowLogs).some(v => v === false) && !dailyLog?.shield_spent && (
+            <Card style={[styles.shieldCard, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}>
+              <View style={styles.shieldHeader}>
+                <View style={styles.shieldTitleGroup}>
+                  <Text style={styles.shieldIcon}>🛡️</Text>
+                  <Text style={[styles.shieldTitle, { color: colors.text.primary }]}>Recovery Shield</Text>
+                </View>
+                <Text style={[styles.shieldCount, { color: colors.primary }]}>
+                  {currentShields} SHIELDS
                 </Text>
               </View>
-              <TouchableOpacity 
+              <Text style={[styles.shieldDesc, { color: colors.text.secondary }]}>
+                Spend 1 Recovery Shield to protect your streak from today's missed vow.
+              </Text>
+              <TouchableOpacity
                 style={[
-                  styles.shieldBtn, 
-                  user.recovery_shields <= 0 && styles.disabledBtn
+                  styles.shieldBtn,
+                  { backgroundColor: colors.primary },
+                  currentShields <= 0 && styles.disabledBtn
                 ]}
-                disabled={user.recovery_shields <= 0}
+                disabled={currentShields <= 0}
                 onPress={useRecoveryShield}
               >
-                <Text style={styles.shieldBtnText}>SPEND 🛡️</Text>
+                <Text style={[styles.shieldBtnText, { color: colors.text.inverse }]}>USE RECOVERY SHIELD 🛡️</Text>
               </TouchableOpacity>
             </Card>
           )}
 
-          {/* Water Intake */}
+          {/* Daily Mood (positioned below that day's vows) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>WATER INTAKE</Text>
-            <Card style={styles.waterCard}>
-              <View style={styles.waterDisplay}>
-                <Text style={styles.waterVolume}>{(dailyLog.water_ml / 1000).toFixed(2)}L</Text>
-                <Text style={styles.waterLabel}>{Math.round(dailyLog.water_ml / 250)} / 10 glasses</Text>
-              </View>
-              <View style={styles.waterControls}>
-                <TouchableOpacity style={styles.waterBtn} onPress={() => handleWaterIncrement(-250)}>
-                  <Text style={styles.waterBtnText}>-250ml</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.waterBtn, styles.waterBtnPlus]} onPress={() => handleWaterIncrement(250)}>
-                  <Text style={styles.waterBtnText}>+250ml</Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
-          </View>
-
-          {/* Mood Selector */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>DAILY MOOD</Text>
-            <Card style={styles.moodCard}>
+            <Text style={[styles.sectionTitle, { color: colors.text.secondary }]}>
+              {isToday ? "DAILY MOOD" : "RECORDED MOOD"}
+            </Text>
+            <Card style={[styles.moodCard, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}>
               <View style={styles.moodGrid}>
                 {moods.map((m) => {
-                  const isSelected = dailyLog.mood === m.key;
+                  const isSelected = dailyLog?.mood === m.key;
                   return (
                     <TouchableOpacity
                       key={m.key}
+                      disabled={!isToday}
                       style={[
                         styles.moodBtn,
-                        isSelected && { borderColor: m.color, backgroundColor: `${m.color}15` }
+                        { backgroundColor: colors.bg.surfaceAlt, borderColor: isSelected ? m.color : colors.border.lowContrast },
+                        isSelected && { backgroundColor: `${m.color}18`, borderWidth: 1.5 }
                       ]}
                       onPress={() => handleMoodSelect(m.key as any)}
+                      activeOpacity={isToday ? 0.7 : 1}
                     >
-                      <Text style={[styles.moodLabel, isSelected && { color: m.color }]}>
+                      <Text style={[styles.moodLabel, { color: isSelected ? m.color : colors.text.primary }]}>
                         {m.label}
                       </Text>
                     </TouchableOpacity>
@@ -202,13 +384,15 @@ export default function CheckInScreen() {
             </Card>
           </View>
         </ScrollView>
+
+        {/* Modal to log today's vows */}
         <VowDetailModal 
           vowId={selectedVowId}
           visible={detailVisible}
           onClose={() => setDetailVisible(false)}
         />
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -218,7 +402,6 @@ const styles = StyleSheet.create({
   },
   darkOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(5, 5, 10, 0.88)', // Deep indigo luxury overlay
   },
   safeArea: {
     flex: 1,
@@ -227,234 +410,256 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#161626', // Refined borders
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerTitle: {
-    fontFamily: theme.typography.fontFamily.mono,
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.primary,
+    fontSize: 24,
+    fontWeight: '600',
+    letterSpacing: 0,
+    fontFamily: typography.fontFamily.displaySemiBold,
+    color: '#F5F6F8',
   },
   headerSub: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.text.secondary,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 3,
+    letterSpacing: 0.2,
+    fontFamily: typography.fontFamily.uiMedium,
+    color: '#8A91A0',
   },
   scrollContent: {
-    paddingBottom: 100, // tab bar buffer
-    gap: 20,
+    paddingBottom: 110,
+    gap: 16,
+  },
+  summaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+      }
+    })
+  },
+  summaryTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    fontFamily: typography.fontFamily.uiBold,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+    color: '#8A91A0',
+  },
+  summaryCount: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: typography.fontFamily.uiBold,
+    color: '#F5F6F8',
+  },
+  percentageBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(243, 186, 69, 0.12)',
+  },
+  percentageText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: typography.fontFamily.uiBold,
+    color: '#F3BA45',
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#262A33',
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#F3BA45',
+    borderRadius: 999,
   },
   section: {
     gap: 8,
   },
-  sectionTitle: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.text.secondary,
-    letterSpacing: 1.5,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 2,
   },
+  sectionTitle: {
+    fontSize: 18,
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    fontFamily: typography.fontFamily.displaySemiBold,
+    color: '#F5F6F8',
+  },
+  sectionHint: {
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontFamily: typography.fontFamily.uiBold,
+    color: '#8A91A0',
+  },
   vowCard: {
-    backgroundColor: 'rgba(15, 15, 24, 0.75)',
-    borderRadius: theme.spacing.borderRadius.card,
-    borderColor: '#1F1F35',
-    borderWidth: 0.5,
-    padding: 16,
-    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 0,
+    position: 'relative',
+    overflow: 'hidden',
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 4px 18px rgba(0, 0, 0, 0.25)',
       }
     })
   },
-  vowCardCompleted: {
-    borderColor: 'rgba(93, 202, 165, 0.4)', // stronger teal border
-    backgroundColor: 'rgba(93, 202, 165, 0.03)',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 0 15px rgba(93, 202, 165, 0.08)',
-      }
-    })
-  },
-  vowCardLapsed: {
-    borderColor: 'rgba(226, 75, 74, 0.4)', // stronger red border
-    backgroundColor: 'rgba(226, 75, 74, 0.03)',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 0 15px rgba(226, 75, 74, 0.08)',
-      }
-    })
-  },
-  vowCardPending: {
-    borderColor: '#1F1F35',
-  },
-  vowCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  vowCardIcon: {
-    fontSize: 24,
-  },
-  vowCardTitleGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  vowCardName: {
-    fontSize: theme.typography.fontSize.sm,
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily.medium,
-  },
-  vowCardDifficulty: {
-    fontSize: 9,
-    color: theme.colors.text.tertiary,
-    fontFamily: theme.typography.fontFamily.mono,
-    letterSpacing: 0.5,
-  },
-  statusBadge: {
-    borderWidth: 0.5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.spacing.borderRadius.pill,
-  },
-  statusBadgeText: {
-    fontSize: 8,
-    fontFamily: theme.typography.fontFamily.mono,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  vowCardProgressSection: {
-    gap: 6,
-  },
-  vowCardProgressTextRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  vowCardProgressLabel: {
-    fontSize: 9,
-    color: theme.colors.text.tertiary,
-    fontFamily: theme.typography.fontFamily.medium,
-  },
-  vowCardProgressValue: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    fontFamily: theme.typography.fontFamily.mono,
-  },
-  vowCardProgressBarContainer: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#1E1E2A',
+  cardArtworkContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '62%',
     overflow: 'hidden',
   },
-  vowCardProgressBar: {
-    height: '100%',
-    borderRadius: 2,
+  cardArtworkImage: {
+    position: 'absolute',
+    right: 0,
+    top: '-20%',
+    width: '100%',
+    height: '140%',
+    opacity: 0.30,
   },
-  reflectionSnippet: {
+  vowCardContent: {
+    position: 'relative',
+    zIndex: 2,
+    padding: 16,
+    gap: 10,
+  },
+  vowCardMain: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(5, 5, 8, 0.4)',
-    borderRadius: 6,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  vowCardInfo: {
+    flex: 1,
+    gap: 3,
+    paddingRight: 12,
+  },
+  vowCardName: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0,
+    fontFamily: typography.fontFamily.displayBold,
+    color: '#F5F6F8',
+  },
+  vowCardSub: {
+    fontSize: 11,
+    letterSpacing: 0.2,
+    fontFamily: typography.fontFamily.uiMedium,
+    color: '#8A91A0',
+  },
+  statusBadge: {
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: typography.fontFamily.uiBold,
+    textTransform: 'uppercase',
+  },
+  noteSnippet: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 0.5,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    gap: 6,
-    alignItems: 'center',
+    gap: 8,
+    alignItems: 'flex-start',
   },
-  reflectionSnippetLabel: {
-    fontSize: 9,
-    color: theme.colors.text.tertiary,
-    fontFamily: theme.typography.fontFamily.medium,
+  noteLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: typography.fontFamily.uiBold,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
-  reflectionSnippetText: {
+  noteText: {
     flex: 1,
-    fontSize: 9,
-    color: theme.colors.text.secondary,
+    fontSize: 12,
+    fontFamily: typography.fontFamily.uiMedium,
     fontStyle: 'italic',
+    lineHeight: 17,
   },
   shieldCard: {
+    padding: 14,
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  shieldHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  shieldTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderColor: 'rgba(108, 91, 149, 0.4)', // Dusk Violet
-    borderWidth: 0.5,
-    backgroundColor: 'rgba(108, 91, 149, 0.05)',
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 4px 20px rgba(108, 91, 149, 0.1)',
-      }
-    })
+    gap: 8,
   },
-  shieldInfo: {
-    flex: 1,
-    marginRight: 16,
+  shieldIcon: {
+    fontSize: 18,
   },
   shieldTitle: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.accent,
-    fontFamily: theme.typography.fontFamily.medium,
+    fontSize: 13,
+    fontFamily: typography.fontFamily.uiBold,
+    fontWeight: '700',
+  },
+  shieldCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: typography.fontFamily.uiBold,
   },
   shieldDesc: {
-    fontSize: theme.typography.fontSize.xxs,
-    color: theme.colors.text.secondary,
-    marginTop: 2,
+    fontSize: 12,
+    fontFamily: typography.fontFamily.ui,
+    lineHeight: 17,
+    color: '#8A91A0',
   },
   shieldBtn: {
-    backgroundColor: theme.colors.accent,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: theme.spacing.borderRadius.card,
-  },
-  shieldBtnText: {
-    color: theme.colors.text.dark,
-    fontFamily: theme.typography.fontFamily.medium,
-    fontSize: theme.typography.fontSize.xs,
-  },
-  disabledBtn: {
-    backgroundColor: theme.colors.text.tertiary,
-    opacity: 0.5,
-  },
-  waterCard: {
+    borderRadius: 8,
     alignItems: 'center',
-    gap: 16,
-    paddingVertical: 16,
-  },
-  waterDisplay: {
-    alignItems: 'center',
-  },
-  waterVolume: {
-    fontFamily: theme.typography.fontFamily.mono,
-    fontSize: 28,
-    color: theme.colors.tertiary,
-  },
-  waterLabel: {
-    fontSize: theme.typography.fontSize.xxs,
-    color: theme.colors.text.secondary,
     marginTop: 2,
   },
-  waterControls: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
+  shieldBtnText: {
+    fontWeight: '700',
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    fontFamily: typography.fontFamily.uiBold,
   },
-  waterBtn: {
-    flex: 1,
-    backgroundColor: theme.colors.bg.surfaceAlt,
-    paddingVertical: 10,
-    borderRadius: theme.spacing.borderRadius.card,
-    alignItems: 'center',
-    borderWidth: 0.5,
-    borderColor: theme.colors.border.lowContrast,
-  },
-  waterBtnPlus: {
-    borderColor: theme.colors.tertiary,
-  },
-  waterBtnText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.text.primary,
+  disabledBtn: {
+    opacity: 0.5,
   },
   moodCard: {
     padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   moodGrid: {
     flexDirection: 'row',
@@ -464,15 +669,13 @@ const styles = StyleSheet.create({
   moodBtn: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: theme.colors.bg.surfaceAlt,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: theme.spacing.borderRadius.card,
-    borderWidth: 0.5,
-    borderColor: theme.colors.border.lowContrast,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   moodLabel: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.text.primary,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -43,7 +43,7 @@ export function calculateCurrentStreak(completedDates: string[]): number {
     
     // Calculate difference in calendar days
     const diffTime = Math.abs(currentDate.getTime() - checkDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (i === 0) {
       streak = 1;
