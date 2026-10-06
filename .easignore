@@ -1,0 +1,29 @@
+# Version control
+.git/
+
+# Node
+node_modules/
+
+# Expo / build
+.expo/
+dist/
+web-build/
+scratch/
+scripts/
+.claude/
+.vscode/
+
+# Docs / specs not needed for mobile build
+*.md
+*.html
+assets/images/ChatGPT Image.png
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+Thumbs.db
