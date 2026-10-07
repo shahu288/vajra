@@ -1,0 +1,4 @@
+scratch/ export-ignore
+scripts/ export-ignore
+assets/images/ChatGPT Image.png export-ignore
+*.md export-ignore
